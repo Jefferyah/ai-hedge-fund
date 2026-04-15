@@ -32,38 +32,60 @@ router = APIRouter(prefix="/simple")
 
 
 @router.get("/debug/fd")
-async def debug_financial_datasets(ticker: str = "GOOGL", db: Session = Depends(get_db)):
-    """Diagnostic: make a raw HTTP call from the container to FinancialDatasets and
-    return status + size, so we can see why get_prices is silently returning []."""
+async def debug_financial_datasets(
+    ticker: str = "GOOGL",
+    days: int = 180,
+    db: Session = Depends(get_db),
+):
+    """Diagnostic: make raw HTTP call + call get_prices() the same way the
+    agent does, to spot the divergence."""
     import requests
+    from src.tools.api import get_prices
 
     keys = ApiKeyService(db).get_api_keys_dict()
     fd_key = keys.get("FINANCIAL_DATASETS_API_KEY")
 
-    start = (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d")
+    start = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
     end = datetime.utcnow().strftime("%Y-%m-%d")
+
+    # --- Raw HTTP ---
     url = (
         f"https://api.financialdatasets.ai/prices/"
         f"?ticker={ticker}&interval=day&interval_multiplier=1"
         f"&start_date={start}&end_date={end}"
     )
     headers = {"X-API-KEY": fd_key} if fd_key else {}
-
+    raw = {}
     try:
         r = requests.get(url, headers=headers, timeout=15)
-        body_preview = r.text[:500]
-        return {
-            "key_present": bool(fd_key),
-            "key_prefix": (fd_key[:8] + "..." + fd_key[-4:]) if fd_key else None,
-            "url": url,
+        raw = {
             "status": r.status_code,
-            "body_preview": body_preview,
+            "body_preview": r.text[:400],
+            "num_rows": len((r.json() or {}).get("prices", [])) if r.status_code == 200 else 0,
         }
     except Exception as e:
-        return {
-            "key_present": bool(fd_key),
-            "error": f"{type(e).__name__}: {e}",
+        raw = {"error": f"{type(e).__name__}: {e}"}
+
+    # --- via get_prices (the path the agent uses) ---
+    agent_path = {}
+    try:
+        prices = get_prices(
+            ticker=ticker, start_date=start, end_date=end, api_key=fd_key
+        )
+        agent_path = {
+            "count": len(prices),
+            "first": (prices[0].model_dump() if prices else None),
         }
+    except Exception as e:
+        agent_path = {"error": f"{type(e).__name__}: {e}"}
+
+    return {
+        "key_present": bool(fd_key),
+        "key_prefix": (fd_key[:8] + "..." + fd_key[-4:]) if fd_key else None,
+        "window": {"start": start, "end": end, "days": days},
+        "raw_requests": raw,
+        "via_get_prices": agent_path,
+    }
 
 
 class SimpleAnalyzeRequest(BaseModel):
