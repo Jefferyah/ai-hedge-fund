@@ -6,7 +6,10 @@ class Price(BaseModel):
     close: float
     high: float
     low: float
-    volume: int
+    # FinancialDatasets free tier stopped returning volume; make it optional
+    # so Pydantic validation doesn't silently swallow the whole response and
+    # leave the agents with no price data.
+    volume: int = 0
     time: str
 
 
