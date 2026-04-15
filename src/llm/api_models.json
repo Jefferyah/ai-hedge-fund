@@ -5,6 +5,26 @@
     "provider": "xAI"
   },
   {
+    "display_name": "Groq - Llama 3.3 70B Versatile",
+    "model_name": "llama-3.3-70b-versatile",
+    "provider": "Groq"
+  },
+  {
+    "display_name": "Groq - Llama 3.1 8B Instant",
+    "model_name": "llama-3.1-8b-instant",
+    "provider": "Groq"
+  },
+  {
+    "display_name": "Groq - Kimi K2 Instruct",
+    "model_name": "moonshotai/kimi-k2-instruct",
+    "provider": "Groq"
+  },
+  {
+    "display_name": "Groq - DeepSeek R1 Distill Llama 70B",
+    "model_name": "deepseek-r1-distill-llama-70b",
+    "provider": "Groq"
+  },
+  {
     "display_name": "GPT-5.4",
     "model_name": "gpt-5.4",
     "provider": "OpenAI"
