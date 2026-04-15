@@ -5,9 +5,25 @@ import asyncio
 import os
 
 from app.backend.routes import api_router
-from app.backend.database.connection import engine
+from app.backend.database.connection import engine, SessionLocal
 from app.backend.database.models import Base
+from app.backend.repositories.api_key_repository import ApiKeyRepository
 from app.backend.services.ollama_service import ollama_service
+
+# API key providers that can be seeded from environment variables.
+# SQLite state is ephemeral on Zeabur container rebuilds, so we re-seed
+# from env vars on startup — Zeabur env vars are the source of truth.
+_SEEDABLE_API_KEYS = [
+    "GROQ_API_KEY",
+    "FINANCIAL_DATASETS_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "GOOGLE_API_KEY",
+    "XAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "MOONSHOT_API_KEY",
+]
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,9 +55,71 @@ app.add_middleware(
 # Include all routes
 app.include_router(api_router)
 
+
+def _seed_api_keys_from_env() -> dict:
+    """Seed the api_keys table from environment variables.
+
+    Zeabur env vars are the source of truth. On every container start we
+    upsert any present env-var keys into the DB so every code path (DB
+    lookup or env fallback) finds the same value. This avoids the "keys
+    disappeared after rebuild" problem without needing a persistent volume.
+    """
+    seeded = []
+    skipped = []
+    db = SessionLocal()
+    try:
+        repo = ApiKeyRepository(db)
+        for provider in _SEEDABLE_API_KEYS:
+            value = os.getenv(provider)
+            if not value:
+                skipped.append(provider)
+                continue
+            repo.create_or_update_api_key(
+                provider=provider,
+                key_value=value,
+                description=f"Seeded from env var at startup",
+                is_active=True,
+            )
+            seeded.append(provider)
+    finally:
+        db.close()
+    return {"seeded": seeded, "skipped": skipped}
+
+
+@app.get("/healthz")
+def healthz():
+    """Liveness + key-presence check. Returns which API keys are loaded
+    (both env var and DB) so you can tell at a glance whether the container
+    has what it needs to run an analysis."""
+    db = SessionLocal()
+    try:
+        db_keys = {k.provider for k in ApiKeyRepository(db).get_all_api_keys(include_inactive=False)}
+    finally:
+        db.close()
+    return {
+        "ok": True,
+        "api_keys": {
+            p: {
+                "env": bool(os.getenv(p)),
+                "db": p in db_keys,
+            }
+            for p in _SEEDABLE_API_KEYS
+        },
+    }
+
+
 @app.on_event("startup")
 async def startup_event():
-    """Startup event to check Ollama availability."""
+    """Seed API keys from env vars, then check Ollama availability."""
+    try:
+        result = _seed_api_keys_from_env()
+        if result["seeded"]:
+            logger.info(f"Seeded API keys from env: {', '.join(result['seeded'])}")
+        else:
+            logger.info("No API keys present in env vars to seed")
+    except Exception as e:
+        logger.warning(f"Failed to seed API keys from env: {e}")
+
     try:
         logger.info("Checking Ollama availability...")
         status = await ollama_service.check_ollama_status()
