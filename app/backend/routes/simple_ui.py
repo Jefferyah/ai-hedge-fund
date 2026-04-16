@@ -327,88 +327,90 @@ _HTML = r"""<!doctype html>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
   :root {
-    --bg: #0b0d12; --panel: #14171e; --panel-2: #1a1e28;
-    --border: #232a36; --border-light: #2e3644;
-    --text: #e7e9ee; --muted: #7c849a; --dim: #555e72;
-    --accent: #5b9aff; --accent-dim: rgba(91,154,255,.12);
-    --buy: #34d399; --sell: #f87171; --hold: #fbbf24;
+    --bg: #191919; --panel: #202020; --panel-2: #1f1f1f;
+    --border: #2a2a2a; --border-light: #2e2e2e;
+    --text: #e8e8e8; --muted: #888888; --dim: #555555;
+    --accent: #8b8bf5; --accent-dim: rgba(139,139,245,.10);
+    --buy: #22c55e; --sell: #ef4444; --hold: #eab308;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { background: var(--bg); color: var(--text);
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
-    -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 1060px; margin: 0 auto; padding: 36px 28px 60px; }
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.5; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 32px 24px 56px; }
 
   /* ---- Header ---- */
-  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 4px; }
-  .logo { font-size: 22px; font-weight: 800; letter-spacing: -.5px; flex: 1;
-    background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent; }
-  select, button { font: inherit; font-size: 13px; color: var(--text); background: var(--panel);
-    border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; cursor: pointer;
-    transition: border-color .15s, box-shadow .15s; }
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 4px;
+    padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .logo { font-size: 18px; font-weight: 700; letter-spacing: -.3px; flex: 1;
+    color: var(--text); }
+  .logo .logo-dot { color: var(--accent); }
+  select, button { font: inherit; font-size: 13px; color: var(--muted); background: transparent;
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; cursor: pointer;
+    transition: border-color .15s, color .15s; }
+  select:hover, button:hover { color: var(--text); border-color: var(--border-light); }
   select:focus, button:focus { outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-dim); }
-  .primary { background: linear-gradient(135deg, #4f8cff, #7c5cfc); border: none;
-    color: #fff; font-weight: 600; padding: 10px 22px; border-radius: 10px;
-    box-shadow: 0 2px 12px rgba(79,140,255,.3); }
-  .primary:hover { box-shadow: 0 4px 20px rgba(79,140,255,.45); }
-  .primary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
-  .sub { color: var(--muted); font-size: 12px; margin-bottom: 28px; line-height: 1.7; }
+    box-shadow: 0 0 0 2px var(--accent-dim); }
+  .primary { background: var(--accent); border: none;
+    color: #fff; font-weight: 600; padding: 8px 18px; border-radius: 8px;
+    box-shadow: none; }
+  .primary:hover { background: #7a7ae8; box-shadow: none; }
+  .primary:disabled { opacity: .4; cursor: not-allowed; }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 14px; margin-bottom: 24px; line-height: 1.7; }
 
   /* ---- Tooltip ---- */
   [data-tip] { border-bottom: 1px dotted var(--dim); cursor: help; position: relative; }
   [data-tip]:hover { border-bottom-color: var(--accent); }
   [data-tip]::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 10px);
-    left: 50%; transform: translateX(-50%); background: var(--panel-2);
+    left: 50%; transform: translateX(-50%); background: #282828;
     border: 1px solid var(--border-light); border-radius: 8px; padding: 10px 14px;
     font-size: 12px; line-height: 1.55; color: var(--text); width: 260px; white-space: normal;
-    box-shadow: 0 12px 32px rgba(0,0,0,.55); opacity: 0; pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4); opacity: 0; pointer-events: none;
     transition: opacity .15s; z-index: 100; }
   [data-tip]:hover::after { opacity: 1; }
 
   /* ---- Panels ---- */
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-    padding: 22px 22px 20px; margin-bottom: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px 18px; margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.3); }
   .panel-title { font-size: 11px; color: var(--muted); text-transform: uppercase;
-    letter-spacing: 1px; margin-bottom: 16px; font-weight: 600; }
+    letter-spacing: 1px; margin-bottom: 14px; font-weight: 600; }
 
   /* ---- Signal bar chart ---- */
-  .signal-wrap { position: relative; height: 280px; }
+  .signal-wrap { position: relative; height: 250px; }
 
   /* ---- Data table ---- */
   .tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
-  .tbl th { text-align: left; color: var(--dim); font-weight: 600; padding: 10px 12px;
+  .tbl th { text-align: left; color: var(--dim); font-weight: 600; padding: 8px 12px;
     border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase;
     letter-spacing: .8px; }
-  .tbl td { padding: 14px 12px; border-bottom: 1px solid rgba(35,42,54,.5);
+  .tbl td { padding: 12px 12px; border-bottom: 1px solid var(--border);
     vertical-align: middle; transition: background .1s; }
   .tbl tr:last-child td { border-bottom: none; }
-  .tbl tbody tr:hover td { background: rgba(91,154,255,.04); }
-  .tbl .tk { font-weight: 700; font-size: 14px; letter-spacing: .3px; }
-  .tbl .price { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tbl tbody tr:hover td { background: rgba(255,255,255,.02); }
+  .tbl .tk { font-weight: 600; font-size: 13px; letter-spacing: .3px; }
+  .tbl .price { font-weight: 500; font-variant-numeric: tabular-nums; }
   .tbl .qty { font-variant-numeric: tabular-nums; }
   .tbl .conf-wrap { display: flex; align-items: center; gap: 6px; }
-  .tbl .conf-bar { height: 6px; border-radius: 3px; min-width: 4px; transition: width .3s; }
-  .tbl .conf-num { font-variant-numeric: tabular-nums; font-size: 12px; }
+  .tbl .conf-bar { height: 5px; border-radius: 3px; min-width: 4px; transition: width .3s; }
+  .tbl .conf-num { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
   .tbl .reasoning { color: var(--muted); font-size: 11px; max-width: 180px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tbl .stamp { color: var(--dim); font-size: 11px; }
   .ref-btn { background: transparent; border: 1px solid var(--border); color: var(--dim);
-    width: 30px; height: 30px; padding: 0; border-radius: 8px; font-size: 14px;
+    width: 28px; height: 28px; padding: 0; border-radius: 6px; font-size: 13px;
     cursor: pointer; transition: all .15s; }
-  .ref-btn:hover { color: var(--accent); border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-dim); }
+  .ref-btn:hover { color: var(--accent); border-color: var(--accent); }
 
   /* ---- Badges ---- */
-  .badge { display: inline-block; padding: 4px 11px; border-radius: 6px;
-    font-weight: 700; font-size: 11px; letter-spacing: .3px; white-space: nowrap; }
-  .badge.buy, .badge.cover { background: rgba(52,211,153,.12); color: var(--buy); }
-  .badge.sell, .badge.short { background: rgba(248,113,113,.12); color: var(--sell); }
-  .badge.hold { background: rgba(251,191,36,.12); color: var(--hold); }
-  .badge.bullish { background: rgba(52,211,153,.12); color: var(--buy); }
-  .badge.bearish { background: rgba(248,113,113,.12); color: var(--sell); }
-  .badge.neutral { background: rgba(124,132,154,.12); color: var(--muted); }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 4px;
+    font-weight: 600; font-size: 11px; letter-spacing: .2px; white-space: nowrap; }
+  .badge.buy, .badge.cover { background: rgba(34,197,94,.10); color: var(--buy); }
+  .badge.sell, .badge.short { background: rgba(239,68,68,.10); color: var(--sell); }
+  .badge.hold { background: rgba(234,179,8,.10); color: var(--hold); }
+  .badge.bullish { background: rgba(34,197,94,.10); color: var(--buy); }
+  .badge.bearish { background: rgba(239,68,68,.10); color: var(--sell); }
+  .badge.neutral { background: rgba(136,136,136,.10); color: var(--muted); }
 
   /* ---- Clickable rows ---- */
   .tbl tbody tr { cursor: pointer; }
@@ -426,12 +428,13 @@ _HTML = r"""<!doctype html>
   .detail-panel .strat-grid .sk { color: var(--muted); }
   .detail-panel .stat-line { color: var(--muted); font-size: 12px; line-height: 2; }
   .detail-panel .reason-full { font-size: 12px; line-height: 1.7; margin-top: 6px;
-    color: var(--text); padding: 10px 12px; background: rgba(0,0,0,.2); border-radius: 8px; }
+    color: var(--text); padding: 10px 12px; background: rgba(0,0,0,.25); border-radius: 8px;
+    border: 1px solid var(--border); }
   .analyst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-  .analyst-card { background: rgba(0,0,0,.18); border: 1px solid var(--border); border-radius: 10px;
+  .analyst-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
     padding: 12px 14px; }
   .analyst-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-  .analyst-name { font-weight: 600; font-size: 13px; color: var(--text); }
+  .analyst-name { font-weight: 500; font-size: 13px; color: var(--text); }
   .conf-sm { font-size: 11px; color: var(--muted); }
   .reason-text { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 4px; }
 
@@ -441,16 +444,16 @@ _HTML = r"""<!doctype html>
   /* ---- Passcode gate ---- */
   .gate { position: fixed; inset: 0; background: var(--bg); z-index: 999;
     display: flex; align-items: center; justify-content: center; }
-  .gate-box { background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
-    padding: 36px 32px; text-align: center; width: 340px;
-    box-shadow: 0 20px 60px rgba(0,0,0,.5); }
-  .gate-box .logo { font-size: 26px; margin-bottom: 8px; display: block; }
+  .gate-box { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 32px 28px; text-align: center; width: 340px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.35); }
+  .gate-box .logo { font-size: 22px; margin-bottom: 8px; display: block; }
   .gate-box p { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
   .gate-box input { width: 100%; font: inherit; font-size: 16px; text-align: center;
-    letter-spacing: 4px; padding: 12px; background: var(--bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 10px; }
+    letter-spacing: 4px; padding: 10px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; }
   .gate-box input:focus { outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-dim); }
+    box-shadow: 0 0 0 2px var(--accent-dim); }
   .gate-box .err-msg { color: var(--sell); font-size: 12px; margin-top: 10px; min-height: 18px; }
   .gate-box button { margin-top: 14px; width: 100%; }
 
@@ -469,7 +472,7 @@ _HTML = r"""<!doctype html>
 <!-- Passcode gate (only shown if SIGNALDECK_PASSCODE is set) -->
 <div class="gate hidden" id="gate">
   <div class="gate-box">
-    <span class="logo">SignalDeck</span>
+    <span class="logo">Signal<span class="logo-dot">.</span>Deck</span>
     <p>請輸入通行碼</p>
     <input id="passInput" type="password" placeholder="Passcode" autocomplete="off" autofocus />
     <div class="err-msg" id="passErr"></div>
@@ -480,7 +483,7 @@ _HTML = r"""<!doctype html>
 <div class="wrap" id="main">
 
   <header>
-    <span class="logo">SignalDeck</span>
+    <span class="logo">Signal<span class="logo-dot">.</span>Deck</span>
     <select id="model">
       <option value="llama-3.1-8b-instant">Llama 3.1 8B (快)</option>
       <option value="llama-3.3-70b-versatile">Llama 3.3 70B (深)</option>
