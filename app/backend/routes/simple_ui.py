@@ -225,6 +225,18 @@ _HTML = """<!doctype html>
   .badge.hold { background: rgba(234,179,8,0.15); color: var(--hold); }
   .badge.short { background: rgba(239,68,68,0.15); color: var(--sell); }
   .badge.cover { background: rgba(34,197,94,0.15); color: var(--buy); }
+  .badge.bullish { background: rgba(34,197,94,0.15); color: var(--buy); }
+  .badge.bearish { background: rgba(239,68,68,0.15); color: var(--sell); }
+  .badge.neutral { background: rgba(138,146,163,0.15); color: var(--muted); }
+  .badge.sm { font-size: 11px; padding: 2px 9px; }
+  .agent-block { margin-top: 14px; }
+  .agent-block + .agent-block { padding-top: 14px; border-top: 1px dashed var(--border); }
+  .agent-name { font-weight: 600; font-size: 14px; }
+  .agent-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .strat-grid { display: grid; grid-template-columns: max-content auto; gap: 6px 14px;
+    margin-top: 8px; font-size: 13px; }
+  .strat-grid .sk { color: var(--muted); }
+  .stat-line { color: var(--muted); font-size: 13px; margin-top: 4px; }
   .price { font-size: 22px; font-weight: 600; }
   .meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
   .kv { display: grid; grid-template-columns: 130px 1fr; gap: 8px 16px; margin-top: 16px;
@@ -268,10 +280,57 @@ _HTML = """<!doctype html>
 const $ = (id) => document.getElementById(id);
 const out = $("out");
 
-function badge(action) {
+function badge(action, sm) {
   const a = (action || "").toLowerCase();
-  const label = { buy: "買入", sell: "賣出", hold: "觀望", short: "放空", cover: "回補" }[a] || action;
-  return `<span class="badge ${a}">${label}</span>`;
+  const label = {
+    buy: "買入", sell: "賣出", hold: "觀望", short: "放空", cover: "回補",
+    bullish: "看多", bearish: "看空", neutral: "中性"
+  }[a] || action || "—";
+  return `<span class="badge ${a}${sm ? ' sm' : ''}">${label}</span>`;
+}
+
+function agentName(n) {
+  if (n.startsWith("technical_analyst")) return "技術分析";
+  if (n.startsWith("risk_management")) return "風險管理";
+  if (n.startsWith("portfolio_manager")) return "投資組合經理";
+  return n;
+}
+
+const STRAT_LABEL = {
+  trend_following: "趨勢追蹤",
+  mean_reversion: "均值回歸",
+  momentum: "動能",
+  volatility: "波動率",
+  statistical_arbitrage: "統計套利",
+};
+
+function renderTechnical(sig) {
+  let h = `<div class="agent-head"><span class="agent-name">技術分析</span>`;
+  h += `${badge(sig.signal, true)}<span style="color:var(--muted);font-size:13px">信心 ${sig.confidence ?? 0}%</span></div>`;
+  if (sig.reasoning && typeof sig.reasoning === "object") {
+    h += `<div class="strat-grid">`;
+    for (const [k, s] of Object.entries(sig.reasoning)) {
+      const name = STRAT_LABEL[k] || k;
+      h += `<div class="sk">${name}</div>`;
+      h += `<div>${badge(s.signal, true)} <span style="color:var(--muted)">${s.confidence ?? 0}%</span></div>`;
+    }
+    h += `</div>`;
+  }
+  return h;
+}
+
+function renderRisk(sig) {
+  let h = `<div class="agent-head"><span class="agent-name">風險管理</span></div>`;
+  const px = sig.current_price;
+  const limit = sig.remaining_position_limit;
+  const vol = sig.volatility_metrics || {};
+  const parts = [];
+  if (px != null) parts.push(`現價 $${Number(px).toFixed(2)}`);
+  if (limit != null) parts.push(`剩餘倉位上限 $${Math.round(Number(limit)).toLocaleString()}`);
+  if (vol.annualized_volatility != null) parts.push(`年化波動 ${(vol.annualized_volatility * 100).toFixed(1)}%`);
+  if (vol.volatility_percentile != null) parts.push(`波動位階 ${vol.volatility_percentile.toFixed(0)} 分位`);
+  if (parts.length) h += `<div class="stat-line">${parts.join(" · ")}</div>`;
+  return h;
 }
 
 function renderResult(r) {
@@ -294,19 +353,26 @@ function renderResult(r) {
     html += `<div class="reasoning"><div class="section-title">Portfolio Manager 理由</div>${escapeHtml(dec.reasoning)}</div>`;
   }
 
-  // Analyst signals
+  // Analyst signals — render technical analyst and risk management with
+  // dedicated layouts (each has a different schema). Skip portfolio_manager
+  // because its output is already shown above as the top-level decision.
   const names = Object.keys(signals);
   if (names.length) {
-    html += `<div class="reasoning"><div class="section-title">Agent 原始訊號</div>`;
+    html += `<div class="reasoning"><div class="section-title">Agent 細節</div>`;
     for (const n of names) {
       const sig = signals[n] && signals[n][t];
       if (!sig) continue;
-      html += `<div style="margin-top:8px"><strong>${n}</strong>: `;
-      html += `${badge(sig.signal)} 信心 ${sig.confidence || 0}%`;
-      if (sig.reasoning) {
-        const r = typeof sig.reasoning === "string" ? sig.reasoning
-          : JSON.stringify(sig.reasoning);
-        html += `<div style="margin-top:4px;color:var(--muted);font-size:13px">${escapeHtml(r.slice(0, 600))}${r.length > 600 ? "…" : ""}</div>`;
+      if (n.startsWith("portfolio_manager")) continue;
+      html += `<div class="agent-block">`;
+      if (n.startsWith("technical_analyst")) {
+        html += renderTechnical(sig);
+      } else if (n.startsWith("risk_management")) {
+        html += renderRisk(sig);
+      } else {
+        html += `<div class="agent-head"><span class="agent-name">${escapeHtml(agentName(n))}</span>`;
+        if (sig.signal) html += `${badge(sig.signal, true)}`;
+        if (sig.confidence != null) html += `<span style="color:var(--muted);font-size:13px">信心 ${sig.confidence}%</span>`;
+        html += `</div>`;
       }
       html += `</div>`;
     }
