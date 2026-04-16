@@ -281,6 +281,8 @@ _HTML = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Hedge Fund — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
   :root {
     --bg: #0f1115;
@@ -410,6 +412,10 @@ _HTML = """<!doctype html>
   .err { color: #fca5a5; font-size: 12px; padding: 8px 10px;
     background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
     border-radius: 6px; }
+
+  /* Chart */
+  .chart-wrap { margin-top: 8px; height: 180px; position: relative; }
+  .chart-wrap canvas { width: 100% !important; height: 100% !important; }
 </style>
 </head>
 <body>
@@ -568,6 +574,8 @@ function cardHtml(ticker, row) {
         <div class="section-title">風險管理</div>
         <div class="stat-line">${riskLines.join(" · ")}</div>
         ${row.reasoning ? `<div class="section-title">Portfolio Manager 理由</div><div class="reasoning-text">${esc(row.reasoning)}</div>` : ""}
+        <div class="section-title">歷史走勢</div>
+        <div class="chart-wrap"><canvas id="chart-${ticker}"></canvas></div>
         <div class="section-title">歷史記錄</div>
         <div class="history-list" id="hist-${ticker}"><div class="stat-line">載入中…</div></div>
       </div>
@@ -602,9 +610,100 @@ async function loadHistory(ticker) {
         <span class="h-conf">${it.confidence ?? 0}%</span>
       </div>
     `).join("");
+    // Draw chart
+    renderChart(ticker, data.items);
   } catch (e) {
     el.innerHTML = `<div class="err">歷史載入失敗</div>`;
   }
+}
+
+const chartInstances = {};
+function renderChart(ticker, items) {
+  const canvas = document.getElementById(`chart-${ticker}`);
+  if (!canvas || !items.length) return;
+  if (chartInstances[ticker]) { chartInstances[ticker].destroy(); }
+
+  // items are newest-first; reverse for chronological order
+  const sorted = [...items].reverse();
+  const labels = sorted.map(it => it.created_at ? new Date(it.created_at) : null).filter(Boolean);
+  const prices = sorted.map(it => it.current_price != null ? Number(it.current_price) : null);
+  const confs = sorted.map(it => it.confidence != null ? it.confidence : null);
+
+  const actionColors = sorted.map(it => {
+    const a = (it.action || "").toLowerCase();
+    if (a === "buy" || a === "cover") return "rgba(34,197,94,0.9)";
+    if (a === "sell" || a === "short") return "rgba(239,68,68,0.9)";
+    return "rgba(234,179,8,0.9)";
+  });
+
+  chartInstances[ticker] = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "收盤價 ($)",
+          data: prices,
+          borderColor: "#4f8cff",
+          backgroundColor: "rgba(79,140,255,0.08)",
+          fill: true,
+          tension: 0.3,
+          yAxisID: "y",
+          pointRadius: 5,
+          pointBackgroundColor: actionColors,
+          pointBorderColor: actionColors,
+        },
+        {
+          label: "信心度 (%)",
+          data: confs,
+          borderColor: "rgba(138,146,163,0.5)",
+          borderDash: [4, 4],
+          tension: 0.3,
+          yAxisID: "y1",
+          pointRadius: 3,
+          pointBackgroundColor: "rgba(138,146,163,0.7)",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { labels: { color: "#8a92a3", font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            afterBody: (ctx) => {
+              const idx = ctx[0].dataIndex;
+              const it = sorted[idx];
+              if (!it) return "";
+              const a = (it.action || "").toUpperCase();
+              return `動作: ${a}  |  ${it.quantity ?? 0} 股`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: "time",
+          time: { unit: "day", tooltipFormat: "yyyy-MM-dd HH:mm" },
+          ticks: { color: "#8a92a3", font: { size: 10 }, maxTicksLimit: 8 },
+          grid: { color: "rgba(42,47,58,0.5)" },
+        },
+        y: {
+          position: "left",
+          ticks: { color: "#4f8cff", font: { size: 10 }, callback: (v) => "$" + v },
+          grid: { color: "rgba(42,47,58,0.3)" },
+        },
+        y1: {
+          position: "right",
+          min: 0, max: 100,
+          ticks: { color: "#8a92a3", font: { size: 10 }, callback: (v) => v + "%" },
+          grid: { display: false },
+        },
+      },
+    },
+  });
 }
 
 function toggleCard(ticker) {
