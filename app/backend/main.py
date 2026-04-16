@@ -57,6 +57,15 @@ app.add_middleware(
 app.include_router(api_router)
 
 
+# Root → redirect to dashboard
+from fastapi.responses import RedirectResponse
+
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/simple")
+
+
 def _seed_api_keys_from_env() -> dict:
     """Seed the api_keys table from environment variables.
 
