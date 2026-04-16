@@ -380,6 +380,24 @@ _HTML = r"""<!doctype html>
   .badge.bearish { background: rgba(239,68,68,.15); color: var(--sell); }
   .badge.neutral { background: rgba(138,146,163,.15); color: var(--muted); }
 
+  /* Clickable rows */
+  .tbl tbody tr { cursor: pointer; }
+  .tbl tbody tr.active td { background: rgba(79,140,255,.06); }
+
+  /* Detail panel (inserted as a full-width row below the clicked row) */
+  .detail-row td { padding: 0 !important; border-bottom: 1px solid var(--border) !important; }
+  .detail-panel { padding: 16px 14px 18px; background: var(--panel-2); border-radius: 0 0 8px 8px; }
+  .detail-panel .dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .detail-panel .dp-grid { grid-template-columns: 1fr; } }
+  .detail-panel .dp-section { }
+  .detail-panel .dp-title { font-size: 11px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .7px; margin-bottom: 8px; }
+  .detail-panel .strat-grid { display: grid; grid-template-columns: max-content auto;
+    gap: 5px 14px; font-size: 12px; }
+  .detail-panel .strat-grid .sk { color: var(--muted); }
+  .detail-panel .stat-line { color: var(--muted); font-size: 12px; line-height: 1.8; }
+  .detail-panel .reason-full { font-size: 12px; line-height: 1.6; margin-top: 4px; color: var(--text); }
+
   /* History chart */
   #historyChart { height: 260px; }
 
@@ -557,18 +575,119 @@ function renderSignalChart(tickers) {
 }
 
 /* ===== Data Table ===== */
+let dashData = {}; // global store so detail panel can read payloads
+let openTicker = null;
+
+const STRAT_LABEL = {
+  trend_following: "趨勢追蹤", mean_reversion: "均值回歸",
+  momentum: "動能", volatility: "波動率", statistical_arbitrage: "統計套利",
+};
+const STRAT_TIP = {
+  trend_following: "順勢操作：股價一路漲就看多、一路跌就看空。",
+  mean_reversion: "反向操作：股價偏離平均太多就預期會拉回。",
+  momentum: "看最近 1/3/6 個月的漲跌速度。",
+  volatility: "看股價震盪幅度。震盪變大通常代表市場有事。",
+  statistical_arbitrage: "從股價統計特性（偏度、記憶性）的異常中找機會。",
+};
+const SIGNAL_LABEL = {bullish:"看多", bearish:"看空", neutral:"中性"};
+
+function signalBadge(sig) {
+  const s = (sig||"").toLowerCase();
+  const label = SIGNAL_LABEL[s] || sig || "—";
+  return `<span class="badge ${s}">${label}</span>`;
+}
+
+function buildDetailHtml(ticker) {
+  const d = dashData[ticker];
+  if (!d || !d.payload) return `<div class="detail-panel"><div class="stat-line">無詳細資料（請重新分析一次）</div></div>`;
+
+  const payload = d.payload;
+  const signals = payload.analyst_signals || {};
+  const ta = (signals["technical_analyst_aaaaaa"] || {})[ticker] || {};
+  const rm = (signals["risk_management_agent_bbbbbb"] || {})[ticker] || {};
+  const strats = (ta.reasoning && typeof ta.reasoning === "object") ? ta.reasoning : {};
+  const vol = rm.volatility_metrics || {};
+
+  // Technical analysis sub-strategies
+  let stratHtml = "";
+  for (const [k, s] of Object.entries(strats)) {
+    const tip = STRAT_TIP[k] || "";
+    stratHtml += `<div class="sk" ${tip ? `data-tip="${esc(tip)}"` : ""}>${STRAT_LABEL[k]||k}</div>`;
+    stratHtml += `<div>${signalBadge(s.signal)} <span style="color:var(--muted)">${s.confidence??0}%</span></div>`;
+  }
+  if (!stratHtml) stratHtml = `<div class="sk" style="grid-column:1/-1">無子策略資料</div>`;
+
+  // Risk management stats
+  const riskParts = [];
+  if (rm.current_price != null)
+    riskParts.push(`<span data-tip="最近一根日 K 的收盤價。">現價</span> $${Number(rm.current_price).toFixed(2)}`);
+  if (rm.remaining_position_limit != null)
+    riskParts.push(`<span data-tip="風險管理允許這檔股票最多還能再投入多少錢，用來避免單檔押太重。">剩餘倉位上限</span> $${Math.round(Number(rm.remaining_position_limit)).toLocaleString()}`);
+  if (vol.annualized_volatility != null)
+    riskParts.push(`<span data-tip="把日波動放大成一年的尺度。20% 左右正常，30-40% 偏高。">年化波動</span> ${(vol.annualized_volatility*100).toFixed(1)}%`);
+  if (vol.volatility_percentile != null)
+    riskParts.push(`<span data-tip="目前波動率跟過去比的位階。50 = 中間、80 = 比過去 80% 的時間都波動。">波動位階</span> ${vol.volatility_percentile.toFixed(0)} 分位`);
+
+  // Overall technical signal
+  const taSignal = ta.signal ? `${signalBadge(ta.signal)} 信心 ${ta.confidence??0}%` : "";
+
+  return `<div class="detail-panel">
+    <div class="dp-grid">
+      <div class="dp-section">
+        <div class="dp-title">技術分析 ${taSignal}</div>
+        <div class="strat-grid">${stratHtml}</div>
+      </div>
+      <div class="dp-section">
+        <div class="dp-title">風險管理</div>
+        <div class="stat-line">${riskParts.join("<br>")}</div>
+        ${d.reasoning ? `<div class="dp-title" style="margin-top:14px">Portfolio Manager 完整理由</div><div class="reason-full">${esc(d.reasoning)}</div>` : ""}
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleDetail(ticker, event) {
+  // Don't trigger when clicking the refresh button
+  if (event && event.target.closest(".ref-btn")) return;
+
+  const tbody = $("tableBody");
+  // Remove existing detail row
+  const existing = document.getElementById("detail-row");
+  const wasOpen = openTicker === ticker;
+  if (existing) existing.remove();
+  // Remove active highlight
+  tbody.querySelectorAll("tr.active").forEach(r => r.classList.remove("active"));
+
+  if (wasOpen) { openTicker = null; return; }
+
+  // Find the clicked data row and insert detail row after it
+  const dataRows = tbody.querySelectorAll("tr.data-row");
+  let targetRow = null;
+  dataRows.forEach(r => { if (r.dataset.ticker === ticker) targetRow = r; });
+  if (!targetRow) return;
+
+  targetRow.classList.add("active");
+  const detailRow = document.createElement("tr");
+  detailRow.id = "detail-row";
+  detailRow.className = "detail-row";
+  detailRow.innerHTML = `<td colspan="8">${buildDetailHtml(ticker)}</td>`;
+  targetRow.after(detailRow);
+  openTicker = ticker;
+}
+
 function renderTable(tickers) {
+  dashData = tickers;
   const tbody = $("tableBody");
   const rows = TICKERS.map(t => {
     const d = tickers[t];
-    if (!d) return `<tr>
-      <td class="tk">${t}</td><td colspan="6" style="color:var(--muted)">尚無資料</td>
-      <td><button class="ref-btn" onclick="analyzeOne('${t}')">↻</button></td>
+    if (!d) return `<tr class="data-row" data-ticker="${t}" onclick="toggleDetail('${t}', event)">
+      <td class="tk">${t}</td><td colspan="6" style="color:var(--muted)">尚無資料 — 按右邊 ↻ 分析</td>
+      <td><button class="ref-btn" onclick="event.stopPropagation();analyzeOne('${t}')">↻</button></td>
     </tr>`;
     const confPct = d.confidence ?? 0;
     const barColor = (d.action||"").match(/buy|cover/) ? "var(--buy)"
       : (d.action||"").match(/sell|short/) ? "var(--sell)" : "var(--hold)";
-    return `<tr>
+    return `<tr class="data-row" data-ticker="${t}" onclick="toggleDetail('${t}', event)">
       <td class="tk">${t}</td>
       <td class="price">$${d.current_price!=null?Number(d.current_price).toFixed(2):"—"}</td>
       <td>${badge(d.action)}</td>
@@ -579,10 +698,11 @@ function renderTable(tickers) {
       </td>
       <td class="reasoning" title="${esc(d.reasoning||"")}">${esc(d.reasoning||"—")}</td>
       <td class="stamp">${timeAgo(d.created_at)}</td>
-      <td><button class="ref-btn" onclick="analyzeOne('${t}')">↻</button></td>
+      <td><button class="ref-btn" onclick="event.stopPropagation();analyzeOne('${t}')">↻</button></td>
     </tr>`;
   });
   tbody.innerHTML = rows.join("");
+  openTicker = null; // reset open state after re-render
 }
 
 /* ===== History Trend Chart ===== */
