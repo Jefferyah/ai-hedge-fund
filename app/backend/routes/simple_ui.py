@@ -125,14 +125,14 @@ async def simple_analyze(req: SimpleAnalyzeRequest, db: Session = Depends(get_db
 
     # Analyst nodes — all run in parallel, then feed risk_mgr → portfolio_mgr
     analyst_ids = [
-        "technical_analyst_aaaaaa",   # 技術分析（純價格）
-        "nassim_taleb_aaaaab",        # 塔雷伯：黑天鵝風控
-        "michael_burry_aaaaac",       # 乃大空頭：逆向深度價值
-        "warren_buffett_aaaaad",      # 巴菲特：價值投資
-        "cathie_wood_aaaaae",         # 木頭姐：破壞式創新
-        "stanley_druckenmiller_aaaaf", # 朱肯米勒：宏觀趨勢
-        "ben_graham_aaaaag",          # 葛拉漢：安全邊際
-        "bill_ackman_aaaaah",         # 阿克曼：行動派價值
+        "technical_analyst_aaaaaa",        # 技術分析（純價格）
+        "nassim_taleb_aaaaab",             # 塔雷伯：黑天鵝風控
+        "michael_burry_aaaaac",            # 乃大空頭：逆向深度價值
+        "warren_buffett_aaaaad",           # 巴菲特：價值投資
+        "cathie_wood_aaaaae",              # 木頭姐：破壞式創新
+        "stanley_druckenmiller_aaafff",    # 朱肯米勒：宏觀趨勢
+        "ben_graham_aaaaag",               # 葛拉漢：安全邊際
+        "bill_ackman_aaaaah",              # 阿克曼：行動派價值
     ]
     pm_id = "portfolio_manager_bbbbbb"
 
