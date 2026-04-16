@@ -133,6 +133,17 @@ async def simple_analyze(req: SimpleAnalyzeRequest, db: Session = Depends(get_db
         "stanley_druckenmiller_aaafff",    # 朱肯米勒：宏觀趨勢
         "ben_graham_aaaaag",               # 葛拉漢：安全邊際
         "bill_ackman_aaaaah",              # 阿克曼：行動派價值
+        "charlie_munger_aaaajj",           # 蒙格：護城河
+        "peter_lynch_aaaakk",              # 彼得林區：成長股
+        "phil_fisher_aaaall",              # 費雪：質化分析
+        "mohnish_pabrai_aaaamm",           # 帕布萊：集中投資
+        "rakesh_jhunjhunwala_aaaann",      # 印度巴菲特
+        "aswath_damodaran_aaaaoo",         # 達摩德蘭：學術估值
+        "fundamentals_analyst_aaaapp",     # 基本面分析師
+        "valuation_analyst_aaaaqq",        # 估值分析師
+        "growth_analyst_aaaarr",           # 成長分析師
+        "sentiment_analyst_aaaass",        # 情緒分析師
+        "news_sentiment_analyst_aaaatt",   # 新聞情緒分析師
     ]
     pm_id = "portfolio_manager_bbbbbb"
 
@@ -726,6 +737,17 @@ const ANALYST_LABEL = {
   stanley_druckenmiller: "朱肯米勒",
   ben_graham: "葛拉漢",
   bill_ackman: "阿克曼",
+  charlie_munger: "蒙格",
+  peter_lynch: "彼得林區",
+  phil_fisher: "費雪",
+  mohnish_pabrai: "帕布萊",
+  rakesh_jhunjhunwala: "印度巴菲特",
+  aswath_damodaran: "達摩德蘭",
+  fundamentals_analyst: "基本面分析",
+  valuation_analyst: "估值分析",
+  growth_analyst: "成長分析",
+  sentiment_analyst: "情緒分析",
+  news_sentiment_analyst: "新聞情緒",
 };
 const ANALYST_TIP = {
   technical_analyst: "從股價走勢、技術指標（趨勢、動能、均值回歸、波動率、統計套利）判斷方向。",
@@ -736,6 +758,17 @@ const ANALYST_TIP = {
   stanley_druckenmiller: "朱肯米勒風格：宏觀趨勢投資，大押注貨幣、商品、利率。",
   ben_graham: "葛拉漢風格：安全邊際，投資被低估的公司。",
   bill_ackman: "阿克曼風格：行動派價值投資，透過策略介入釋放價值。",
+  charlie_munger: "蒙格風格：護城河思維，只投資優質企業，用合理價買好公司。",
+  peter_lynch: "彼得林區風格：買你懂的公司，PEG ratio 找成長股。",
+  phil_fisher: "費雪風格：質化分析，看管理層能力和長期成長潛力。",
+  mohnish_pabrai: "帕布萊風格：集中投資少數高確信標的，低風險高報酬。",
+  rakesh_jhunjhunwala: "印度巴菲特風格：看宏觀趨勢，投資新興市場高成長產業。",
+  aswath_damodaran: "達摩德蘭風格：學術派估值大師，用 DCF 和多種模型算內在價值。",
+  fundamentals_analyst: "從財報數據（營收、利潤、負債比）評估公司基本面。",
+  valuation_analyst: "用各種估值模型判斷股價是否合理。",
+  growth_analyst: "分析成長趨勢和估值，找出成長型投資機會。",
+  sentiment_analyst: "從內部人交易和市場情緒判斷多空方向。",
+  news_sentiment_analyst: "從新聞報導的正負面情緒預測短期走勢。",
 };
 
 function signalBadge(sig) {
