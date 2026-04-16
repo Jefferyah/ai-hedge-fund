@@ -116,9 +116,12 @@ async def simple_analyze(req: SimpleAnalyzeRequest, db: Session = Depends(get_db
         ),
     ]
 
-    # Date window: past 180 days
-    end_date = datetime.utcnow().strftime("%Y-%m-%d")
-    start_date = (datetime.utcnow() - timedelta(days=180)).strftime("%Y-%m-%d")
+    # Date window: past 180 days, ending yesterday.
+    # We deliberately use (today - 1) so that (a) today's bar — which isn't
+    # closed yet — isn't requested, and (b) we don't race FinancialDatasets'
+    # "today" (they use US market time; UTC may already be on the next day).
+    end_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+    start_date = (datetime.utcnow() - timedelta(days=181)).strftime("%Y-%m-%d")
 
     # Load API keys from DB
     api_keys = ApiKeyService(db).get_api_keys_dict()
