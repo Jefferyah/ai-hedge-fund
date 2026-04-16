@@ -123,16 +123,25 @@ async def simple_analyze(req: SimpleAnalyzeRequest, db: Session = Depends(get_db
     if not ticker:
         raise HTTPException(status_code=400, detail="ticker is required")
 
-    graph_nodes = [
-        GraphNode(id="technical_analyst_aaaaaa", type="agent", data={}),
-        GraphNode(id="portfolio_manager_bbbbbb", type="agent", data={}),
+    # Analyst nodes — all run in parallel, then feed risk_mgr → portfolio_mgr
+    analyst_ids = [
+        "technical_analyst_aaaaaa",   # 技術分析（純價格）
+        "nassim_taleb_aaaaab",        # 塔雷伯：黑天鵝風控
+        "michael_burry_aaaaac",       # 乃大空頭：逆向深度價值
+        "warren_buffett_aaaaad",      # 巴菲特：價值投資
+        "cathie_wood_aaaaae",         # 木頭姐：破壞式創新
+        "stanley_druckenmiller_aaaaf", # 朱肯米勒：宏觀趨勢
+        "ben_graham_aaaaag",          # 葛拉漢：安全邊際
+        "bill_ackman_aaaaah",         # 阿克曼：行動派價值
     ]
+    pm_id = "portfolio_manager_bbbbbb"
+
+    graph_nodes = [GraphNode(id=a, type="agent", data={}) for a in analyst_ids]
+    graph_nodes.append(GraphNode(id=pm_id, type="agent", data={}))
+
     graph_edges = [
-        GraphEdge(
-            id="e1",
-            source="technical_analyst_aaaaaa",
-            target="portfolio_manager_bbbbbb",
-        ),
+        GraphEdge(id=f"e{i}", source=a, target=pm_id)
+        for i, a in enumerate(analyst_ids)
     ]
 
     end_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -406,6 +415,13 @@ _HTML = r"""<!doctype html>
   .detail-panel .stat-line { color: var(--muted); font-size: 12px; line-height: 2; }
   .detail-panel .reason-full { font-size: 12px; line-height: 1.7; margin-top: 6px;
     color: var(--text); padding: 10px 12px; background: rgba(0,0,0,.2); border-radius: 8px; }
+  .analyst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .analyst-card { background: rgba(0,0,0,.18); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; }
+  .analyst-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .analyst-name { font-weight: 600; font-size: 13px; color: var(--text); }
+  .conf-sm { font-size: 11px; color: var(--muted); }
+  .reason-text { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 4px; }
 
   /* ---- History chart ---- */
   .history-wrap { position: relative; height: 280px; }
@@ -699,37 +715,95 @@ const STRAT_TIP = {
 };
 const SIGNAL_LABEL = {bullish:"看多", bearish:"看空", neutral:"中性"};
 
+// Analyst display names (keyed by base agent ID prefix before the suffix)
+const ANALYST_LABEL = {
+  technical_analyst: "技術分析",
+  nassim_taleb: "塔雷伯 (黑天鵝)",
+  michael_burry: "乃大空頭",
+  warren_buffett: "巴菲特",
+  cathie_wood: "木頭姐",
+  stanley_druckenmiller: "朱肯米勒",
+  ben_graham: "葛拉漢",
+  bill_ackman: "阿克曼",
+};
+const ANALYST_TIP = {
+  technical_analyst: "從股價走勢、技術指標（趨勢、動能、均值回歸、波動率、統計套利）判斷方向。",
+  nassim_taleb: "塔雷伯風格：專注尾部風險、反脆弱性、凸性報酬。低波動反而危險。",
+  michael_burry: "大空頭風格：深度價值逆向投資，看 FCF yield 和資產負債表。",
+  warren_buffett: "巴菲特風格：尋找有護城河的優質企業，長期持有。",
+  cathie_wood: "木頭姐風格：破壞式創新，投資引領技術變革的公司。",
+  stanley_druckenmiller: "朱肯米勒風格：宏觀趨勢投資，大押注貨幣、商品、利率。",
+  ben_graham: "葛拉漢風格：安全邊際，投資被低估的公司。",
+  bill_ackman: "阿克曼風格：行動派價值投資，透過策略介入釋放價值。",
+};
+
 function signalBadge(sig) {
   const s = (sig||"").toLowerCase();
   return `<span class="badge ${s}">${SIGNAL_LABEL[s]||sig||"—"}</span>`;
+}
+
+function baseAgentKey(fullId) {
+  // "technical_analyst_aaaaaa" → "technical_analyst"
+  const parts = fullId.split("_");
+  const last = parts[parts.length - 1];
+  if (/^[a-z0-9]{6}$/.test(last)) return parts.slice(0, -1).join("_");
+  return fullId;
 }
 
 function buildDetailHtml(ticker) {
   const d = dashData[ticker];
   if (!d || !d.payload) return `<div class="detail-panel"><div class="stat-line">無詳細資料（請重新分析一次）</div></div>`;
   const signals = (d.payload.analyst_signals||{});
-  const ta = (signals["technical_analyst_aaaaaa"]||{})[ticker]||{};
   const rm = (signals["risk_management_agent_bbbbbb"]||{})[ticker]||{};
-  const strats = (ta.reasoning && typeof ta.reasoning==="object") ? ta.reasoning : {};
   const vol = rm.volatility_metrics||{};
-  let stratHtml = "";
-  for (const [k, s] of Object.entries(strats)) {
-    const tip = STRAT_TIP[k]||"";
-    stratHtml += `<div class="sk" ${tip?`data-tip="${esc(tip)}"`:""}>${STRAT_LABEL[k]||k}</div>`;
-    stratHtml += `<div>${signalBadge(s.signal)} <span style="color:var(--muted)">${s.confidence??0}%</span></div>`;
+
+  // Build analyst cards
+  let analystHtml = "";
+  for (const [agentId, tickerData] of Object.entries(signals)) {
+    const base = baseAgentKey(agentId);
+    if (base === "risk_management_agent") continue; // handled separately
+    const info = (tickerData||{})[ticker]||{};
+    if (!info.signal) continue;
+    const label = ANALYST_LABEL[base] || base;
+    const tip = ANALYST_TIP[base] || "";
+
+    // Technical analyst has sub-strategies in reasoning
+    let subHtml = "";
+    if (base === "technical_analyst" && info.reasoning && typeof info.reasoning === "object") {
+      subHtml = '<div class="strat-grid">';
+      for (const [k, s] of Object.entries(info.reasoning)) {
+        const stip = STRAT_TIP[k]||"";
+        subHtml += `<div class="sk" ${stip?`data-tip="${esc(stip)}"`:""}>${STRAT_LABEL[k]||k}</div>`;
+        subHtml += `<div>${signalBadge(s.signal)} <span style="color:var(--muted)">${s.confidence??0}%</span></div>`;
+      }
+      subHtml += "</div>";
+    } else if (info.reasoning && typeof info.reasoning === "string") {
+      subHtml = `<div class="reason-text">${esc(info.reasoning)}</div>`;
+    }
+
+    analystHtml += `<div class="analyst-card">
+      <div class="analyst-hdr" ${tip?`data-tip="${esc(tip)}"`:""}>
+        <span class="analyst-name">${esc(label)}</span>
+        ${signalBadge(info.signal)} <span class="conf-sm">${info.confidence??0}%</span>
+      </div>${subHtml}</div>`;
   }
-  if (!stratHtml) stratHtml = `<div class="sk" style="grid-column:1/-1">無子策略資料</div>`;
+  if (!analystHtml) analystHtml = `<div style="color:var(--muted)">無分析師訊號</div>`;
+
+  // Risk management
   const riskParts = [];
   if (rm.current_price!=null) riskParts.push(`<span data-tip="最近一根日 K 的收盤價。">現價</span> $${Number(rm.current_price).toFixed(2)}`);
   if (rm.remaining_position_limit!=null) riskParts.push(`<span data-tip="風險管理允許這檔股票最多還能再投入多少錢。">剩餘倉位上限</span> $${Math.round(Number(rm.remaining_position_limit)).toLocaleString()}`);
   if (vol.annualized_volatility!=null) riskParts.push(`<span data-tip="把日波動放大成一年的尺度。20% 正常，30-40% 偏高。">年化波動</span> ${(vol.annualized_volatility*100).toFixed(1)}%`);
   if (vol.volatility_percentile!=null) riskParts.push(`<span data-tip="目前波動率跟過去比的位階。50 = 中間，80 = 比過去 80% 的時間都波動。">波動位階</span> ${vol.volatility_percentile.toFixed(0)} 分位`);
-  const taSignal = ta.signal ? `${signalBadge(ta.signal)} 信心 ${ta.confidence??0}%` : "";
-  return `<div class="detail-panel"><div class="dp-grid">
-    <div><div class="dp-title">技術分析 ${taSignal}</div><div class="strat-grid">${stratHtml}</div></div>
-    <div><div class="dp-title">風險管理</div><div class="stat-line">${riskParts.join("<br>")}</div>
-    ${d.reasoning?`<div class="dp-title" style="margin-top:16px">投組經理完整理由</div><div class="reason-full">${esc(d.reasoning)}</div>`:""}</div>
-  </div></div>`;
+
+  return `<div class="detail-panel">
+    <div class="dp-title" style="margin-bottom:12px">分析師觀點 (${Object.keys(signals).filter(k=>baseAgentKey(k)!=="risk_management_agent").length} 位)</div>
+    <div class="analyst-grid">${analystHtml}</div>
+    <div class="dp-grid" style="margin-top:16px">
+      <div><div class="dp-title">風險管理</div><div class="stat-line">${riskParts.join("<br>")||"無資料"}</div></div>
+      <div>${d.reasoning?`<div class="dp-title">投組經理結論</div><div class="reason-full">${esc(d.reasoning)}</div>`:""}</div>
+    </div>
+  </div>`;
 }
 
 function toggleDetail(ticker, event) {
