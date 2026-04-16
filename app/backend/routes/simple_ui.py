@@ -353,7 +353,7 @@ _HTML = r"""<!doctype html>
     letter-spacing: 1px; margin-bottom: 16px; font-weight: 600; }
 
   /* ---- Signal bar chart ---- */
-  .signal-wrap { position: relative; height: 220px; }
+  .signal-wrap { position: relative; height: 280px; }
 
   /* ---- Data table ---- */
   .tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
@@ -604,34 +604,55 @@ function renderSignalChart(tickers) {
 
   const entries = TICKERS.map(t => {
     const d = tickers[t];
-    return { ticker: t, sc: d ? signedConf(d.action, d.confidence) : 0, data: d };
+    const raw = d ? signedConf(d.action, d.confidence) : 0;
+    const action = d ? (d.action||"").toLowerCase() : "";
+    const isHold = action === "hold" || (!action && d);
+    return { ticker: t, sc: raw, data: d, isHold };
   }).sort((a,b) => a.sc - b.sc);
+
+  // Hold/neutral: show a small bar so it's visible (yellow)
+  const chartData = entries.map(e => e.isHold ? 5 : e.sc);
+  const bgColors = entries.map(e =>
+    e.isHold ? "rgba(251,191,36,.45)"
+    : e.sc > 0 ? "rgba(52,211,153,.5)"
+    : e.sc < 0 ? "rgba(248,113,113,.5)"
+    : "rgba(100,116,139,.3)"
+  );
+  const bdColors = entries.map(e =>
+    e.isHold ? "rgba(251,191,36,.85)"
+    : e.sc > 0 ? "rgba(52,211,153,.85)"
+    : e.sc < 0 ? "rgba(248,113,113,.85)"
+    : "rgba(100,116,139,.5)"
+  );
 
   signalChartInst = new Chart(ctx, {
     type: "bar",
     data: {
       labels: entries.map(e => e.ticker),
       datasets: [{
-        data: entries.map(e => e.sc),
-        backgroundColor: entries.map(e => e.sc > 0 ? "rgba(52,211,153,.55)" : e.sc < 0 ? "rgba(248,113,113,.55)" : "rgba(251,191,36,.35)"),
-        borderColor: entries.map(e => e.sc > 0 ? "rgba(52,211,153,.9)" : e.sc < 0 ? "rgba(248,113,113,.9)" : "rgba(251,191,36,.7)"),
-        borderWidth: 1,
-        borderRadius: 6,
+        data: chartData,
+        backgroundColor: bgColors,
+        borderColor: bdColors,
+        borderWidth: 1.5,
+        borderRadius: 8,
         borderSkipped: false,
-        barThickness: 32,
+        barThickness: 28,
+        maxBarThickness: 34,
       }]
     },
     options: {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { left: 4, right: 4 } },
+      layout: { padding: { left: 8, right: 8, top: 8, bottom: 0 } },
       plugins: {
         legend: { display: false },
         tooltip: {
           backgroundColor: "#1a1e28", titleColor: "#e7e9ee", bodyColor: "#e7e9ee",
           borderColor: "#2e3644", borderWidth: 1, cornerRadius: 8, padding: 12,
+          displayColors: false,
           callbacks: {
+            title: ctx2 => entries[ctx2[0].dataIndex].ticker,
             label: ctx2 => {
               const e = entries[ctx2.dataIndex];
               const d = e.data;
@@ -647,13 +668,14 @@ function renderSignalChart(tickers) {
           min: -100, max: 100,
           ticks: { color: "#555e72", font: { size: 10 },
             callback: v => v===0?"0":(v>0?"買入 "+v+"%":"賣出 "+Math.abs(v)+"%"), stepSize: 25 },
-          grid: { color: "rgba(35,42,54,.6)" },
+          grid: { color: "rgba(35,42,54,.4)", lineWidth: 0.5 },
           title: { display: true, text: "◄  賣出 / 放空                    買入 / 回補  ►",
             color: "#555e72", font: { size: 10 } },
         },
         y: {
-          ticks: { color: "#e7e9ee", font: { size: 13, weight: "bold" } },
+          ticks: { color: "#e7e9ee", font: { size: 13, weight: "600" }, padding: 8 },
           grid: { display: false },
+          afterFit: scale => { scale.width = 70; },
         },
       },
     },
