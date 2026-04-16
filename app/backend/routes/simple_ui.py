@@ -510,6 +510,10 @@ _HTML = r"""<!doctype html>
 </div>
 
 <script>
+/* ===== Helpers ===== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
 /* ===== Passcode ===== */
 let storedPass = sessionStorage.getItem("sd_pass") || "";
 
@@ -569,8 +573,6 @@ const TICKER_COLOR = {
   AAPL: "#5b9aff", GOOGL: "#34d399", MSFT: "#a78bfa", NVDA: "#22d3ee", TSLA: "#f87171",
 };
 const ACTION_LABEL = {buy:"買入",sell:"賣出",hold:"觀望",short:"放空",cover:"回補"};
-const $ = id => document.getElementById(id);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function badge(action) {
   const a = (action||"").toLowerCase();
