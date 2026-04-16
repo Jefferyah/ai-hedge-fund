@@ -97,19 +97,40 @@ class HedgeFundFlowRunCycle(Base):
 class ApiKey(Base):
     """Table to store API keys for various services"""
     __tablename__ = "api_keys"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # API key details
     provider = Column(String(100), nullable=False, unique=True, index=True)  # e.g., "ANTHROPIC_API_KEY"
     key_value = Column(Text, nullable=False)  # The actual API key (encrypted in production)
     is_active = Column(Boolean, default=True)  # Enable/disable without deletion
-    
+
     # Optional metadata
     description = Column(Text, nullable=True)  # Human-readable description
     last_used = Column(DateTime(timezone=True), nullable=True)  # Track usage
 
 
- 
+class SimpleAnalysis(Base):
+    """Persisted results of the /simple/analyze one-shot dashboard.
+
+    One row per analysis run. The dashboard reads the latest row per ticker;
+    the history view reads the last N rows per ticker.
+    """
+    __tablename__ = "simple_analyses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    ticker = Column(String(16), nullable=False, index=True)
+    model = Column(String(100), nullable=True)
+
+    # Flattened headline fields (for fast dashboard queries)
+    action = Column(String(20), nullable=True)  # buy / sell / hold / short / cover
+    quantity = Column(Integer, nullable=True)
+    confidence = Column(Integer, nullable=True)  # 0-100
+    current_price = Column(String(32), nullable=True)  # stringified float to avoid precision issues
+
+    reasoning = Column(Text, nullable=True)  # portfolio manager's text
+    payload = Column(JSON, nullable=True)  # full response JSON (decisions + analyst_signals)
