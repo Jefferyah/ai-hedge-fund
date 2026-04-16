@@ -307,7 +307,7 @@ _HTML = r"""<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Hedge Fund Dashboard</title>
+<title>SignalDeck</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
@@ -414,7 +414,7 @@ _HTML = r"""<!doctype html>
 <div class="wrap">
 
   <header>
-    <h1>AI Hedge Fund Dashboard</h1>
+    <h1>SignalDeck</h1>
     <select id="model">
       <option value="llama-3.1-8b-instant">Llama 3.1 8B (快)</option>
       <option value="llama-3.3-70b-versatile">Llama 3.3 70B (深)</option>

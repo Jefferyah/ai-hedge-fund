@@ -30,7 +30,7 @@ _SEEDABLE_API_KEYS = [
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AI Hedge Fund API", description="Backend API for AI Hedge Fund", version="0.1.0")
+app = FastAPI(title="SignalDeck API", description="AI-powered stock signal dashboard", version="0.1.0")
 
 # Initialize database tables (this is safe to run multiple times)
 Base.metadata.create_all(bind=engine)
