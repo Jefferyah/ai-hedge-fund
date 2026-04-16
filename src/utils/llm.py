@@ -55,6 +55,14 @@ def call_llm(
             method="json_mode",
         )
 
+    # Inject language preference if set in state metadata
+    lang = state.get("metadata", {}).get("language") if state else None
+    if lang and hasattr(prompt, "messages") and prompt.messages:
+        from langchain_core.messages import SystemMessage
+        prompt.messages.append(
+            SystemMessage(content=f"IMPORTANT: You MUST write ALL text output (especially the 'reasoning' field) in {lang}. Keep JSON keys in English.")
+        )
+
     # Call the LLM with retries
     for attempt in range(max_retries):
         try:

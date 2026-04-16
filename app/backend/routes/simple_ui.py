@@ -182,6 +182,7 @@ async def simple_analyze(req: SimpleAnalyzeRequest, db: Session = Depends(get_db
             model_name=req.model_name,
             model_provider=req.model_provider,
             request=hf_req,
+            language="繁體中文",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"analysis failed: {e}")
